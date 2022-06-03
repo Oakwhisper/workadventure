@@ -8,7 +8,7 @@ import {
   startRedis,
   stopRedis,
 } from './utils/containers';
-import { getBackDump, getPusherDump } from './utils/debug';
+import {getBackDump, getPusherDump, getPusherRooms} from './utils/debug';
 import { assertLogMessage } from './utils/log';
 import { login } from './utils/roles';
 
@@ -165,6 +165,14 @@ test.describe('Variables', () => {
 
     // Let's check we successfully manage to save the variable value.
     await assertLogMessage(page2, 'SUCCESS!');
+
+    // Let's check the pusher getRooms endpoint returns 2 users on the map
+    const rooms = await getPusherRooms();
+    expect(
+        rooms[
+            'http://play.workadventure.localhost/_/global/maps.workadventure.localhost/tests/Variables/Cache/variables_tmp.json'
+            ]
+    ).toBe(2);
   });
 });
 

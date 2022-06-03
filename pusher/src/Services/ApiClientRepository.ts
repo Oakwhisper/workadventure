@@ -25,14 +25,22 @@ class ApiClientRepository {
                 this.apiUrls[index],
                 grpc.credentials.createInsecure()
             );
-            debug("Mapping room %s to API server %s", roomId, this.apiUrls[index]);
         }
+        debug("Mapping room %s to API server %s", roomId, this.apiUrls[index]);
 
         return Promise.resolve(client);
     }
 
     public async getAllClients(): Promise<RoomManagerClient[]> {
-        return [await this.getClient("")];
+        for (let i=0; i < this.apiUrls.length; i++) {
+            if (this.roomManagerClients[i] === undefined) {
+                this.roomManagerClients[i] = new RoomManagerClient(
+                    this.apiUrls[i],
+                    grpc.credentials.createInsecure()
+                );
+            }
+        }
+        return this.roomManagerClients;
     }
 }
 

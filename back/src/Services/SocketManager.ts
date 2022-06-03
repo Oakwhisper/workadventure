@@ -39,7 +39,7 @@ import {
     PlayerDetailsUpdatedMessage,
     GroupUsersUpdateMessage,
     LockGroupPromptMessage,
-    ErrorMessage,
+    ErrorMessage, RoomsList, RoomDescription,
 } from "../Messages/generated/messages_pb";
 import { User, UserSocket } from "../Model/User";
 import { ProtobufUtils } from "../Model/Websocket/ProtobufUtils";
@@ -68,8 +68,13 @@ function emitZoneMessage(subMessage: SubToPusherMessage, socket: ZoneSocket): vo
 }
 
 export class SocketManager {
-    //private rooms = new Map<string, GameRoom>();
-    // List of rooms in process of loading.
+    /**
+     * List of rooms already loaded (note: never use this directly).
+     * It is only here for the very specific getAllRooms case that needs to return all available rooms
+     * without waiting for pending rooms.
+     */
+    private resolvedRooms = new Map<string, GameRoom>();
+    // List of rooms (or rooms in process of loading).
     private roomsPromises = new Map<string, PromiseLike<GameRoom>>();
 
     constructor() {
@@ -242,6 +247,7 @@ export class SocketManager {
             room.leave(user);
             if (room.isEmpty()) {
                 this.roomsPromises.delete(room.roomUrl);
+                this.resolvedRooms.delete(room.roomUrl);
                 gaugeManager.decNbRoomGauge();
                 debug('Room is empty. Deleting room "%s"', room.roomUrl);
             }
@@ -284,6 +290,7 @@ export class SocketManager {
             )
                 .then((gameRoom) => {
                     gaugeManager.incNbRoomGauge();
+                    this.resolvedRooms.set(roomId, gameRoom);
                     return gameRoom;
                 })
                 .catch((e) => {
@@ -812,6 +819,7 @@ export class SocketManager {
         room.adminLeave(admin);
         if (room.isEmpty()) {
             this.roomsPromises.delete(room.roomUrl);
+            this.resolvedRooms.delete(room.roomUrl);
             gaugeManager.decNbRoomGauge();
             debug('Room is empty. Deleting room "%s"', room.roomUrl);
         }
@@ -1000,6 +1008,20 @@ export class SocketManager {
         }
         group.lock(message.getLock());
         room.emitLockGroupEvent(user, group.getId());
+    }
+
+    getAllRooms(): RoomsList {
+        const roomsList = new RoomsList();
+
+        for (const room of this.resolvedRooms.values()) {
+            const roomDescription = new RoomDescription();
+            roomDescription.setRoomid(room.roomUrl);
+            roomDescription.setNbusers(room.getUsers().size);
+
+            roomsList.addRoomdescription(roomDescription);
+        }
+
+        return roomsList;
     }
 }
 
